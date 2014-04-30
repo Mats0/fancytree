@@ -176,6 +176,44 @@ function _makeNodeTitleMatcher(s){
 	};
 }
 
+
+/* Recursively load lazy nodes if `autoLoad` option is set
+ * @returns {$.Promise}
+ */
+function _recursiveLoad(parentNode, maxDepth, maxTime, maxNodes, dfd) {
+	var i, key, l, node,
+		foundOne = false,
+		lazyNodeList = [],
+		deferredList = [],
+		// lazyNodeList = [],
+		missingKeyList = []; //keyList.slice(0),
+
+	// expand = expand !== false;
+	dfd = dfd || $.Deferred();
+
+	parentNode.visit(function(node){
+		if( node.isUndefined() ) {
+			lazyNodeList.push(node);
+			tree.debug("_recursiveLoad: " + node + " is lazy: loading...");
+			deferredList.push(node.load());
+		}
+	});
+
+	if( lazyNodeList.length ) {
+		$.when.apply($, deferredList).always(function(){
+			// All lazy-expands have finished
+			if( foundOne && missingKeyList.length > 0 ) {
+				// If we read new nodes from server, try to resolve yet-missing keys
+				_recursiveLoad(parentNode, maxDepth, maxTime, maxNodes, dfd);
+			} else {
+				dfd.resolve();
+			}
+		});
+	}
+	return dfd;
+}
+
+
 var i,
 	FT = null, // initialized below
 	ENTITY_MAP = {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;"},
